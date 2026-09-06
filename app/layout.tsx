@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: 'After the Conference — Pac-12 Football Tracker',
   description:
     'Weekly matchups, schedules, and scores for the old and new Pac-12 football teams.',
+  icons: { icon: '/pac12-wordmark.svg' },
 };
 
 export default function RootLayout({

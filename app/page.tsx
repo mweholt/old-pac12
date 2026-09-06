@@ -167,6 +167,7 @@ function TeamSchedule({ team }: { team: Team }) {
           const mine = game.competitors.find((competitor) => competitor.id === team.id);
           const opponent = game.competitors.find((competitor) => competitor.id !== team.id);
           const completed = game.status.completed;
+          const live = game.status.state === 'in';
           const outcome = completed && mine ? (mine.winner ? 'W' : 'L') : null;
           return (
             <div key={game.id} className="flex items-center gap-3 py-4">
@@ -178,12 +179,14 @@ function TeamSchedule({ team }: { team: Team }) {
                 <div className="truncate font-bold text-white">
                   {mine?.homeAway === 'away' ? 'at ' : 'vs '} {opponent?.name ?? game.shortName}
                 </div>
-                <div className="mt-0.5 text-xs text-slate-500">{completed ? game.status.detail : formatGameDate(game.date)}</div>
+                <div className={`mt-0.5 text-xs ${live ? 'status-live' : 'text-slate-500'}`}>
+                  {completed || live ? game.status.detail : formatGameDate(game.date)}
+                </div>
               </div>
-              {completed ? (
+              {completed || live ? (
                 <div className="flex items-center gap-2 font-black tabular-nums">
-                  <span className={outcome === 'W' ? 'text-emerald-400' : 'text-rose-400'}>{outcome}</span>
-                  <span className="text-white">{mine?.score}–{opponent?.score}</span>
+                  {outcome && <span className={outcome === 'W' ? 'text-emerald-400' : 'text-rose-400'}>{outcome}</span>}
+                  <span className="text-white">{mine?.score || '0'}–{opponent?.score || '0'}</span>
                 </div>
               ) : (
                 <span className="text-xs font-bold uppercase text-slate-500">{game.broadcast || 'TBD'}</span>
@@ -202,6 +205,8 @@ export default function Home() {
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -229,12 +234,48 @@ export default function Home() {
         teams,
         partial: teams.length !== teamMap.size,
       });
+      setLastUpdated(new Date());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Live ESPN data could not be loaded.');
     }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const refreshScores = useCallback(async (week: number) => {
+    setIsRefreshing(true);
+    try {
+      const season = currentSeason();
+      const response = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?season=${season}&week=${week}&seasontype=2&groups=80&limit=500`,
+        { cache: 'no-store' },
+      );
+      if (!response.ok) throw new Error(`ESPN returned ${response.status}`);
+      const payload = await response.json() as Record<string, any>;
+      const liveGames = (payload.events ?? []).map(normalizeEspnEvent) as Game[];
+      const byId = new Map(liveGames.map((game) => [game.id, game]));
+
+      setData((current) => current ? {
+        ...current,
+        teams: current.teams.map((team) => {
+          const existingIds = new Set(team.events.map((game) => game.id));
+          const additions = liveGames.filter((game) =>
+            !existingIds.has(game.id) && game.competitors.some((competitor) => competitor.id === team.id),
+          );
+          return {
+            ...team,
+            events: [...team.events.map((game) => byId.get(game.id) ?? game), ...additions]
+              .sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).valueOf()),
+          };
+        }),
+      } : current);
+      setLastUpdated(new Date());
+    } catch {
+      // Keep the last good scoreboard visible if a background refresh fails.
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
 
   const groupIds = useMemo(() => new Set(data?.groups[era] ?? []), [data, era]);
   const groupTeams = useMemo(
@@ -256,6 +297,22 @@ export default function Home() {
       .sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).valueOf())[0];
     setSelectedWeek((current) => (current && weeks.includes(current) ? current : (upcoming?.week ?? weeks[weeks.length - 1])));
   }, [allGames, weeks]);
+
+  useEffect(() => {
+    if (!selectedWeek || !data) return;
+    void refreshScores(selectedWeek);
+    const interval = window.setInterval(() => void refreshScores(selectedWeek), 15_000);
+    const refreshVisiblePage = () => {
+      if (document.visibilityState === 'visible') void refreshScores(selectedWeek);
+    };
+    window.addEventListener('focus', refreshVisiblePage);
+    document.addEventListener('visibilitychange', refreshVisiblePage);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshVisiblePage);
+      document.removeEventListener('visibilitychange', refreshVisiblePage);
+    };
+  }, [data?.season, refreshScores, selectedWeek]);
 
   useEffect(() => {
     const modelContext = (document as Document & {
@@ -296,31 +353,41 @@ export default function Home() {
     .sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).valueOf());
   const selectedTeam = data?.teams.find((team) => team.id === selectedTeamId) ?? null;
   const weekIndex = selectedWeek ? weeks.indexOf(selectedWeek) : -1;
+  const hasLiveGames = weekGames.some((game) => game.status.state === 'in');
 
   return (
     <main className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#090b18]/88 px-5 py-4 backdrop-blur-xl sm:px-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="pac-mark" aria-hidden="true">12</div>
-            <div>
-              <h1 className="text-base font-black uppercase tracking-[0.15em] text-white sm:text-lg">After the Conference</h1>
-              <p className="text-xs text-slate-400 sm:text-sm">{data?.season ?? new Date().getFullYear()} football tracker</p>
-            </div>
+      <header className="site-header sticky top-0 z-40">
+        <div className="utility-bar">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-5 sm:px-8">
+            <span>PAC-12 FOOTBALL</span>
+            <span className="utility-live">Live scores powered by ESPN</span>
           </div>
-          <div className="era-switch" aria-label="Choose Pac-12 era">
-            <button className={era === 'old' ? 'active' : ''} onClick={() => setEra('old')}>Old Pac-12</button>
-            <button className={era === 'new' ? 'active' : ''} onClick={() => setEra('new')}>New Pac-12</button>
+        </div>
+        <div className="main-nav px-5 sm:px-8">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <img src="/pac12-wordmark.svg" alt="Pac-12 Conference" className="pac-logo" />
+              <span className="nav-divider" aria-hidden="true" />
+            <div>
+                <h1 className="text-base font-black uppercase tracking-[0.08em] text-[#0a3158] sm:text-lg">Football Tracker</h1>
+                <p className="text-xs text-slate-500 sm:text-sm">{data?.season ?? new Date().getFullYear()} season</p>
+              </div>
+            </div>
+            <div className="era-switch" aria-label="Choose Pac-12 era">
+              <button className={era === 'old' ? 'active' : ''} onClick={() => setEra('old')}>Old Pac-12</button>
+              <button className={era === 'new' ? 'active' : ''} onClick={() => setEra('new')}>New Pac-12</button>
+            </div>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12">
-        <div className="mb-7 flex flex-wrap items-end justify-between gap-5">
+      <section className="pac-hero">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-5 px-5 py-8 sm:px-8 sm:py-10">
           <div>
             <p className="eyebrow">{era === 'old' ? 'Where are they now?' : 'A new era begins'}</p>
-            <h2 className="mt-2 max-w-3xl text-4xl font-black tracking-[-0.045em] text-white sm:text-6xl">
-              Every team. Every game.
+            <h2 className="mt-2 max-w-3xl text-3xl font-black tracking-[-0.035em] text-white sm:text-5xl">
+              Every team. Every week.
             </h2>
           </div>
           {selectedWeek && (
@@ -335,7 +402,9 @@ export default function Home() {
             </div>
           )}
         </div>
+      </section>
 
+      <section className="mx-auto max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
         <div className="week-rail" aria-label="Season weeks">
           {weeks.map((week) => (
             <button key={week} className={selectedWeek === week ? 'active' : ''} onClick={() => setSelectedWeek(week)}>
@@ -354,7 +423,23 @@ export default function Home() {
             <section className="scoreboard-shell">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <h3 className="section-title">Week {selectedWeek ?? '—'} matchups</h3>
-                <span className="live-dot">ESPN data</span>
+                <div className="flex items-center gap-2">
+                  <span className={`live-dot ${hasLiveGames ? 'is-live' : ''}`}>
+                    {hasLiveGames
+                      ? 'Live · updates every 15 sec'
+                      : lastUpdated
+                        ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                        : 'ESPN data'}
+                  </span>
+                  <button
+                    className="icon-button"
+                    aria-label="Refresh live scores"
+                    disabled={!selectedWeek || isRefreshing}
+                    onClick={() => selectedWeek && void refreshScores(selectedWeek)}
+                  >
+                    <RefreshCw className={isRefreshing ? 'animate-spin' : ''} />
+                  </button>
+                </div>
               </div>
               {!data ? (
                 <div className="grid gap-3 sm:grid-cols-2">
