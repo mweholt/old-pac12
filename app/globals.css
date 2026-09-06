@@ -127,8 +127,21 @@ body {
 .status-live::before { content: ''; display: inline-block; width: .4rem; height: .4rem; margin-right: .35rem; border-radius: 50%; background: currentColor; animation: live-pulse 1.8s infinite; }
 .empty-state, .error-state { display: grid; min-height: 15rem; place-items: center; align-content: center; gap: 1rem; border: 1px dashed rgb(255 255 255 / 13%); border-radius: 1rem; color: #64748b; text-align: center; }
 .error-state { min-height: 22rem; margin-top: 1.25rem; }
+.loading-block { animation: loading-pulse 1.7s ease-in-out infinite; background: rgb(255 255 255 / 7%); }
+.icon-button { display: grid; width: 2.25rem; height: 2.25rem; place-items: center; border: 1px solid rgb(255 255 255 / 12%); border-radius: .6rem; color: white; background: rgb(255 255 255 / 4%); transition: .18s ease; }
+.icon-button svg { width: 1rem; height: 1rem; }
+.icon-button:hover:not(:disabled), .retry-button:hover { border-color: rgb(255 103 166 / 50%); background: rgb(255 103 166 / 10%); }
+.icon-button:disabled { cursor: not-allowed; opacity: .35; }
+.retry-button { display: inline-flex; height: 2.4rem; align-items: center; gap: .5rem; border: 1px solid rgb(255 255 255 / 14%); border-radius: .7rem; padding: 0 .9rem; color: white; background: rgb(255 255 255 / 5%); font-size: .85rem; font-weight: 750; }
+.retry-button svg { width: .95rem; height: .95rem; }
+.team-panel-layer { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: flex-end; background: rgb(0 0 0 / 38%); backdrop-filter: blur(4px); }
+.team-panel { position: relative; display: flex; width: min(94vw, 520px); height: 100%; flex-direction: column; border-left: 1px solid rgb(255 255 255 / 10%); background: #0d1020; box-shadow: -24px 0 70px rgb(0 0 0 / 38%); animation: panel-in .22s ease-out; }
+.panel-close { position: absolute; top: .8rem; right: .8rem; z-index: 2; display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: .55rem; color: #94a3b8; background: rgb(255 255 255 / 6%); font-size: 1.35rem; line-height: 1; }
+.panel-close:hover { color: white; background: rgb(255 255 255 / 11%); }
 
 @keyframes live-pulse { 50% { opacity: .35; transform: scale(.75); } }
+@keyframes loading-pulse { 50% { opacity: .45; } }
+@keyframes panel-in { from { transform: translateX(2.5rem); opacity: 0; } }
 
 @media (max-width: 640px) {
   .era-switch button { padding-inline: .65rem; font-size: .75rem; }

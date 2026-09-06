@@ -2,15 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
 
 type Era = 'old' | 'new';
 type Competitor = {
@@ -328,13 +319,13 @@ export default function Home() {
           </div>
           {selectedWeek && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" aria-label="Previous week" disabled={weekIndex <= 0} onClick={() => setSelectedWeek(weeks[weekIndex - 1])}>
+              <button className="icon-button" aria-label="Previous week" disabled={weekIndex <= 0} onClick={() => setSelectedWeek(weeks[weekIndex - 1])}>
                 <ChevronLeft />
-              </Button>
+              </button>
               <div className="week-chip">Week {selectedWeek}<span>{weekRange(weekGames)}</span></div>
-              <Button variant="outline" size="icon" aria-label="Next week" disabled={weekIndex < 0 || weekIndex >= weeks.length - 1} onClick={() => setSelectedWeek(weeks[weekIndex + 1])}>
+              <button className="icon-button" aria-label="Next week" disabled={weekIndex < 0 || weekIndex >= weeks.length - 1} onClick={() => setSelectedWeek(weeks[weekIndex + 1])}>
                 <ChevronRight />
-              </Button>
+              </button>
             </div>
           )}
         </div>
@@ -350,7 +341,7 @@ export default function Home() {
         {error ? (
           <div className="error-state">
             <p>{error}</p>
-            <Button variant="outline" onClick={() => void load()}><RefreshCw /> Try again</Button>
+            <button className="retry-button" onClick={() => void load()}><RefreshCw /> Try again</button>
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
@@ -361,7 +352,7 @@ export default function Home() {
               </div>
               {!data ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-48 rounded-2xl bg-white/7" />)}
+                  {[0, 1, 2, 3].map((item) => <div key={item} className="loading-block h-48 rounded-2xl" />)}
                 </div>
               ) : weekGames.length ? (
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -378,7 +369,7 @@ export default function Home() {
               <p className="mt-1 text-sm text-slate-500">Open a full-season schedule and past scores.</p>
               <div className="mt-5 grid grid-cols-2 gap-2">
                 {!data
-                  ? [0, 1, 2, 3, 4, 5, 6, 7].map((item) => <Skeleton key={item} className="h-16 rounded-xl bg-white/7" />)
+                  ? [0, 1, 2, 3, 4, 5, 6, 7].map((item) => <div key={item} className="loading-block h-16 rounded-xl" />)
                   : groupTeams.map((team) => (
                       <button key={team.id} className="team-tile flex items-center gap-2.5" onClick={() => setSelectedTeamId(team.id)}>
                         <TeamLogo team={team} className="size-8 shrink-0" />
@@ -396,24 +387,23 @@ export default function Home() {
         Schedule and score data provided by ESPN. This site is not affiliated with ESPN or the Pac-12 Conference.
       </footer>
 
-      <Sheet open={Boolean(selectedTeam)} onOpenChange={(open) => { if (!open) setSelectedTeamId(null); }}>
-        <SheetContent className="w-[min(94vw,520px)] border-white/10 bg-[#0d1020] sm:max-w-[520px]">
-          {selectedTeam && (
-            <>
-              <SheetHeader className="border-b border-white/8 px-5 py-5">
+      {selectedTeam && (
+        <div className="team-panel-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setSelectedTeamId(null); }}>
+          <aside className="team-panel" role="dialog" aria-modal="true" aria-labelledby="team-panel-title">
+            <button className="panel-close" aria-label="Close team schedule" onClick={() => setSelectedTeamId(null)}>×</button>
+            <div className="border-b border-white/8 px-5 py-5">
                 <div className="flex items-center gap-4 pr-10">
                   <TeamLogo team={selectedTeam} className="size-14" />
                   <div>
-                    <SheetTitle className="text-xl font-black text-white">{selectedTeam.name}</SheetTitle>
-                    <SheetDescription>{data?.season} schedule & scores</SheetDescription>
+                    <h2 id="team-panel-title" className="text-xl font-black text-white">{selectedTeam.name}</h2>
+                    <p className="text-sm text-slate-500">{data?.season} schedule & scores</p>
                   </div>
                 </div>
-              </SheetHeader>
-              <TeamSchedule team={selectedTeam} />
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+            </div>
+            <TeamSchedule team={selectedTeam} />
+          </aside>
+        </div>
+      )}
     </main>
   );
 }
