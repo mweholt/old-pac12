@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, RefreshCw } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type Era = 'old' | 'new';
 type Competitor = {
@@ -61,9 +62,10 @@ function currentSeason() {
 function normalizeEspnEvent(event: Record<string, any>): Game {
   const competition = event.competitions?.[0] ?? {};
   const status = competition.status?.type ?? {};
+  const espnWeek = Number(event.week?.number);
   return {
     id: event.id ?? '', date: event.date ?? '', name: event.name ?? '', shortName: event.shortName ?? '',
-    week: event.week?.number ?? 0,
+    week: Number.isFinite(espnWeek) ? Math.max(0, espnWeek - 1) : -1,
     status: { state: status.state ?? 'pre', completed: status.completed ?? false, detail: status.shortDetail ?? status.detail ?? '' },
     venue: competition.venue ? {
       name: competition.venue.fullName ?? '', city: competition.venue.address?.city ?? '', state: competition.venue.address?.state ?? '',
@@ -118,17 +120,20 @@ function TeamLogo({ team, className = '' }: { team: Pick<Team, 'name' | 'logo' |
   );
 }
 
-function GameCard({ game, trackedIds }: { game: Game; trackedIds: Set<string> }) {
+function GameCard({ game, trackedIds, onOpen }: { game: Game; trackedIds: Set<string>; onOpen: () => void }) {
   const competitors = [...game.competitors].sort((a, b) => (a.homeAway === 'away' ? -1 : b.homeAway === 'away' ? 1 : 0));
   const completed = game.status.completed;
   const live = game.status.state === 'in';
 
   return (
-    <article className="game-card">
+    <button type="button" className="game-card" onClick={onOpen} aria-label={`View details for ${game.name}`}>
       <div className="game-meta">
-        <span className={live ? 'status-live' : ''}>{game.status.detail || formatGameDate(game.date)}</span>
+        <span className="game-date">{formatGameDate(game.date)}</span>
         <span>{game.broadcast}</span>
       </div>
+      {(live || completed) && (
+        <div className={`game-status ${live ? 'status-live' : ''}`}>{game.status.detail}</div>
+      )}
       <div className="space-y-3">
         {competitors.map((competitor) => (
           <div key={competitor.id} className="flex items-center gap-3">
@@ -155,7 +160,40 @@ function GameCard({ game, trackedIds }: { game: Game; trackedIds: Set<string> })
           <span className="truncate">{game.venue.name || [game.venue.city, game.venue.state].filter(Boolean).join(', ')}</span>
         </div>
       )}
-    </article>
+      <span className="game-details-link">Game details</span>
+    </button>
+  );
+}
+
+function GameDetails({ game, onTeam }: { game: Game; onTeam: (teamId: string) => void }) {
+  const competitors = [...game.competitors].sort((a, b) => (a.homeAway === 'away' ? -1 : b.homeAway === 'away' ? 1 : 0));
+  const showScore = game.status.completed || game.status.state === 'in';
+  return (
+    <>
+      <DialogHeader className="game-dialog-header">
+        <DialogDescription>{formatGameDate(game.date)}{game.broadcast ? ` · ${game.broadcast}` : ''}</DialogDescription>
+        <DialogTitle>{game.shortName || game.name}</DialogTitle>
+        <p className={game.status.state === 'in' ? 'status-live' : 'game-dialog-status'}>
+          {game.status.detail || 'Scheduled'}
+        </p>
+      </DialogHeader>
+      <div className="game-dialog-teams">
+        {competitors.map((competitor) => (
+          <button key={competitor.id} type="button" className="game-dialog-team" onClick={() => onTeam(competitor.id)}>
+            <TeamLogo team={{ name: competitor.name, logo: competitor.logo, color: competitor.color }} className="size-14" />
+            <span>
+              <strong>{competitor.name}</strong>
+              <small>{competitor.record || (competitor.homeAway === 'home' ? 'Home' : 'Away')} · View schedule</small>
+            </span>
+            {showScore && <b>{competitor.score || '0'}</b>}
+          </button>
+        ))}
+      </div>
+      <div className="game-dialog-facts">
+        <div><CalendarDays /><span><small>Date & time</small>{formatGameDate(game.date)}</span></div>
+        <div><MapPin /><span><small>Location</small>{game.venue?.name || [game.venue?.city, game.venue?.state].filter(Boolean).join(', ') || 'TBD'}</span></div>
+      </div>
+    </>
   );
 }
 
@@ -172,7 +210,7 @@ function TeamSchedule({ team }: { team: Team }) {
           return (
             <div key={game.id} className="flex items-center gap-3 py-4">
               <div className="w-14 shrink-0 text-xs font-semibold uppercase text-slate-500">
-                {game.week ? `Wk ${game.week}` : 'Post'}
+                {game.week >= 0 ? `Wk ${game.week}` : 'Post'}
               </div>
               {opponent && <TeamLogo team={{ name: opponent.name, logo: opponent.logo, color: opponent.color }} className="size-9" />}
               <div className="min-w-0 flex-1">
@@ -204,6 +242,7 @@ export default function Home() {
   const [data, setData] = useState<FootballData | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -247,7 +286,7 @@ export default function Home() {
     try {
       const season = currentSeason();
       const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?season=${season}&week=${week}&seasontype=2&groups=80&limit=500`,
+        `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?season=${season}&week=${week + 1}&seasontype=2&groups=80&limit=500`,
         { cache: 'no-store' },
       );
       if (!response.ok) throw new Error(`ESPN returned ${response.status}`);
@@ -277,6 +316,33 @@ export default function Home() {
     }
   }, []);
 
+  const openTeamSchedule = useCallback(async (teamId: string) => {
+    setSelectedGameId(null);
+    if (data?.teams.some((team) => team.id === teamId)) {
+      setSelectedTeamId(teamId);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${teamId}/schedule?season=${currentSeason()}&seasontype=2`,
+      );
+      if (!response.ok) return;
+      const payload = await response.json() as Record<string, any>;
+      const team: Team = {
+        id: teamId,
+        name: payload.team?.displayName ?? 'Team',
+        abbreviation: payload.team?.abbreviation ?? '',
+        logo: payload.team?.logo ?? '',
+        color: payload.team?.color ?? '',
+        events: (payload.events ?? []).map(normalizeEspnEvent),
+      };
+      setData((current) => current ? { ...current, teams: [...current.teams, team] } : current);
+      setSelectedTeamId(teamId);
+    } catch {
+      // Leave the game details visible if ESPN cannot load the opponent schedule.
+    }
+  }, [data?.teams]);
+
   const groupIds = useMemo(() => new Set(data?.groups[era] ?? []), [data, era]);
   const groupTeams = useMemo(
     () => (data ? data.groups[era].map((id) => data.teams.find((team) => team.id === id)).filter(Boolean) as Team[] : []),
@@ -285,9 +351,9 @@ export default function Home() {
   const allGames = useMemo(() => {
     const unique = new Map<string, Game>();
     groupTeams.forEach((team) => team.events.forEach((game) => unique.set(game.id, game)));
-    return [...unique.values()].filter((game) => game.week > 0);
+    return [...unique.values()].filter((game) => game.week >= 0);
   }, [groupTeams]);
-  const weeks = useMemo(() => [...new Set(allGames.map((game) => game.week))].sort((a, b) => a - b), [allGames]);
+  const weeks = useMemo(() => [...new Set([0, ...allGames.map((game) => game.week)])].sort((a, b) => a - b), [allGames]);
 
   useEffect(() => {
     if (!weeks.length) return;
@@ -299,7 +365,7 @@ export default function Home() {
   }, [allGames, weeks]);
 
   useEffect(() => {
-    if (!selectedWeek || !data) return;
+    if (selectedWeek === null || !data) return;
     void refreshScores(selectedWeek);
     const interval = window.setInterval(() => void refreshScores(selectedWeek), 15_000);
     const refreshVisiblePage = () => {
@@ -330,18 +396,20 @@ export default function Home() {
           era: { type: 'string', enum: ['old', 'new'] },
           week: { type: 'integer', minimum: 0 },
           teamId: { type: 'string' },
+          gameId: { type: 'string' },
         },
         required: ['era'],
         additionalProperties: false,
       },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute(input: unknown) {
-        const value = input as { era?: Era; week?: number; teamId?: string };
+        const value = input as { era?: Era; week?: number; teamId?: string; gameId?: string };
         if (value.era !== 'old' && value.era !== 'new') throw new Error('era must be old or new');
         setEra(value.era);
         if (typeof value.week === 'number') setSelectedWeek(value.week);
         if (value.teamId) setSelectedTeamId(value.teamId);
-        return { era: value.era, week: value.week ?? null, teamId: value.teamId ?? null };
+        if (value.gameId) setSelectedGameId(value.gameId);
+        return { era: value.era, week: value.week ?? null, teamId: value.teamId ?? null, gameId: value.gameId ?? null };
       },
     }, { signal: lifecycle.signal });
     void Promise.resolve(register).catch(() => undefined);
@@ -352,7 +420,8 @@ export default function Home() {
     .filter((game) => game.week === selectedWeek)
     .sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).valueOf());
   const selectedTeam = data?.teams.find((team) => team.id === selectedTeamId) ?? null;
-  const weekIndex = selectedWeek ? weeks.indexOf(selectedWeek) : -1;
+  const selectedGame = allGames.find((game) => game.id === selectedGameId) ?? null;
+  const weekIndex = selectedWeek !== null ? weeks.indexOf(selectedWeek) : -1;
   const hasLiveGames = weekGames.some((game) => game.status.state === 'in');
 
   return (
@@ -390,7 +459,7 @@ export default function Home() {
               Every team. Every week.
             </h2>
           </div>
-          {selectedWeek && (
+          {selectedWeek !== null && (
             <div className="flex items-center gap-2">
               <button className="icon-button" aria-label="Previous week" disabled={weekIndex <= 0} onClick={() => setSelectedWeek(weeks[weekIndex - 1])}>
                 <ChevronLeft />
@@ -447,7 +516,9 @@ export default function Home() {
                 </div>
               ) : weekGames.length ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {weekGames.map((game) => <GameCard key={game.id} game={game} trackedIds={groupIds} />)}
+                  {weekGames.map((game) => (
+                    <GameCard key={game.id} game={game} trackedIds={groupIds} onOpen={() => setSelectedGameId(game.id)} />
+                  ))}
                 </div>
               ) : (
                 <div className="empty-state"><CalendarDays className="size-7" /><p>No games scheduled for this week.</p></div>
@@ -462,7 +533,7 @@ export default function Home() {
                 {!data
                   ? [0, 1, 2, 3, 4, 5, 6, 7].map((item) => <div key={item} className="loading-block h-16 rounded-xl" />)
                   : groupTeams.map((team) => (
-                      <button key={team.id} className="team-tile flex items-center gap-2.5" onClick={() => setSelectedTeamId(team.id)}>
+                      <button key={team.id} className="team-tile flex items-center gap-2.5" onClick={() => void openTeamSchedule(team.id)}>
                         <TeamLogo team={team} className="size-8 shrink-0" />
                         <span className="leading-tight">{team.name}</span>
                       </button>
@@ -477,6 +548,17 @@ export default function Home() {
       <footer className="mx-auto max-w-7xl px-5 pb-10 text-xs text-slate-600 sm:px-8">
         Schedule and score data provided by ESPN. This site is not affiliated with ESPN or the Pac-12 Conference.
       </footer>
+
+      <Dialog open={Boolean(selectedGame)} onOpenChange={(open) => { if (!open) setSelectedGameId(null); }}>
+        <DialogContent className="game-dialog sm:max-w-xl">
+          {selectedGame && (
+            <GameDetails
+              game={selectedGame}
+              onTeam={(teamId) => void openTeamSchedule(teamId)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {selectedTeam && (
         <div className="team-panel-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setSelectedTeamId(null); }}>

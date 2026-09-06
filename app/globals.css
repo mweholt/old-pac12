@@ -5,6 +5,7 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
 }
 
 :root {
@@ -21,7 +22,9 @@
 * { box-sizing: border-box; }
 html { font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif; background: var(--pac-bg); }
 body { min-height: 100vh; margin: 0; color: var(--pac-ink); background: var(--pac-bg); }
+button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
+h1, h2, h3, h4, h5, h6 { font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif; }
 
 .site-header { border-bottom: 1px solid #cbd7e2; background: white; box-shadow: 0 2px 12px rgb(3 36 68 / 12%); }
 .utility-bar { min-height: 2rem; padding: .42rem 0; color: rgb(255 255 255 / 78%); background: var(--pac-deep); font-size: .68rem; font-weight: 800; letter-spacing: .12em; }
@@ -57,12 +60,16 @@ button { cursor: pointer; }
 .live-dot.is-live { color: #07814f; }
 .live-dot.is-live::before { background: #0ab66d; box-shadow: 0 0 0 .22rem rgb(10 182 109 / 14%); animation: live-pulse 1.8s infinite; }
 
-.game-card { min-width: 0; border: 1px solid #d9e2ea; border-top: 3px solid var(--pac-blue); border-radius: .18rem; padding: 1rem; color: var(--pac-ink); background: white; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.game-card { display: block; width: 100%; min-width: 0; border: 1px solid #d9e2ea; border-top: 3px solid var(--pac-blue); border-radius: .18rem; padding: 1rem; color: var(--pac-ink); background: white; text-align: left; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
 .game-card:hover { transform: translateY(-2px); border-color: #8dbbd7; box-shadow: 0 8px 22px rgb(3 53 91 / 10%); }
+.game-card:focus-visible { outline: 3px solid rgb(0 114 188 / 25%); outline-offset: 2px; }
 .game-card .text-white, .scoreboard-shell .text-white { color: var(--pac-ink) !important; }
 .game-card .text-slate-300 { color: #40596e !important; }
 .game-card .text-slate-500, .scoreboard-shell .text-slate-500 { color: var(--pac-muted) !important; }
 .game-meta { display: flex; min-height: 1.3rem; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; color: #667d90; font-size: .7rem; font-weight: 850; text-transform: uppercase; letter-spacing: .055em; }
+.game-date { color: var(--pac-navy); }
+.game-status { margin: -.45rem 0 .8rem; color: #667d90; font-size: .75rem; font-weight: 800; text-transform: uppercase; }
+.game-details-link { display: block; margin-top: .85rem; border-top: 1px solid #e1e8ee; padding-top: .7rem; color: var(--pac-blue); font-size: .72rem; font-weight: 850; letter-spacing: .06em; text-align: right; text-transform: uppercase; }
 .status-live { color: #07814f !important; }
 .status-live::before { content: ''; display: inline-block; width: .4rem; height: .4rem; margin-right: .35rem; border-radius: 50%; background: currentColor; animation: live-pulse 1.8s infinite; }
 
@@ -87,6 +94,26 @@ button { cursor: pointer; }
 .team-panel .border-white\/8 { border-color: var(--pac-line) !important; }
 .panel-close { position: absolute; top: .8rem; right: .8rem; z-index: 2; display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid #c9d4dd; border-radius: .16rem; color: #5d7386; background: #f4f7f9; font-size: 1.35rem; line-height: 1; }
 .panel-close:hover { color: white; border-color: var(--pac-blue); background: var(--pac-blue); }
+
+.game-dialog { overflow: hidden; gap: 0; padding: 0; color: var(--pac-ink); background: white; border: 1px solid #b9c8d4; border-radius: .25rem; box-shadow: 0 24px 80px rgb(0 26 50 / 32%); }
+.game-dialog-header { padding: 1.35rem 3rem 1.15rem 1.35rem; color: white; background: linear-gradient(105deg, var(--pac-deep), #075889); }
+.game-dialog-header [data-slot="dialog-description"] { color: #afd9ed; font-size: .78rem; font-weight: 700; }
+.game-dialog-header [data-slot="dialog-title"] { margin-top: .3rem; color: white; font-size: 1.35rem; font-weight: 900; }
+.game-dialog-status { margin-top: .4rem; color: #c4dceb; font-size: .75rem; font-weight: 800; text-transform: uppercase; }
+.game-dialog [data-slot="dialog-close"] { color: white; }
+.game-dialog-teams { display: grid; padding: .55rem 1.25rem; }
+.game-dialog-team { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; border-bottom: 1px solid var(--pac-line); padding: 1rem 0; color: var(--pac-ink); text-align: left; }
+.game-dialog-team:last-child { border-bottom: 0; }
+.game-dialog-team:hover strong { color: var(--pac-blue); }
+.game-dialog-team span { display: grid; gap: .15rem; min-width: 0; }
+.game-dialog-team strong { overflow: hidden; color: var(--pac-navy); font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; transition: color .16s ease; }
+.game-dialog-team small { color: var(--pac-muted); font-size: .75rem; }
+.game-dialog-team b { color: var(--pac-navy); font-size: 2rem; font-weight: 900; }
+.game-dialog-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; border-top: 1px solid var(--pac-line); padding: 1rem 1.25rem 1.25rem; background: #f4f7f9; }
+.game-dialog-facts > div { display: flex; min-width: 0; align-items: flex-start; gap: .6rem; color: var(--pac-navy); font-size: .8rem; font-weight: 700; }
+.game-dialog-facts svg { width: 1rem; height: 1rem; flex: none; margin-top: .08rem; color: var(--pac-blue); }
+.game-dialog-facts span { display: grid; gap: .12rem; min-width: 0; }
+.game-dialog-facts small { color: var(--pac-muted); font-size: .67rem; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
 
 footer { color: #667d90 !important; }
 
