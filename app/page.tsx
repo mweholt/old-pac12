@@ -27,6 +27,12 @@ type Game = {
   broadcast: string;
   competitors: Competitor[];
 };
+type GameDetail = {
+  linescore: Array<{ id: string; name: string; abbreviation: string; logo: string; score: string; periods: string[] }>;
+  stats: { teams: Array<{ id: string; abbreviation: string }>; rows: Array<{ label: string; values: string[] }> };
+  leaders: Array<{ teamId: string; team: string; logo: string; category: string; athlete: string; value: string; headshot: string }>;
+  scoringPlays: Array<{ id: string; team: string; logo: string; period: number; clock: string; text: string; awayScore: string; homeScore: string }>;
+};
 type Team = {
   id: string;
   name: string;
@@ -62,10 +68,9 @@ function currentSeason() {
 function normalizeEspnEvent(event: Record<string, any>): Game {
   const competition = event.competitions?.[0] ?? {};
   const status = competition.status?.type ?? {};
-  const espnWeek = Number(event.week?.number);
   return {
     id: event.id ?? '', date: event.date ?? '', name: event.name ?? '', shortName: event.shortName ?? '',
-    week: Number.isFinite(espnWeek) ? Math.max(0, espnWeek - 1) : -1,
+    week: Number.isFinite(Number(event.week?.number)) ? Number(event.week.number) : -1,
     status: { state: status.state ?? 'pre', completed: status.completed ?? false, detail: status.shortDetail ?? status.detail ?? '' },
     venue: competition.venue ? {
       name: competition.venue.fullName ?? '', city: competition.venue.address?.city ?? '', state: competition.venue.address?.state ?? '',
@@ -84,6 +89,49 @@ function normalizeEspnEvent(event: Record<string, any>): Game {
       };
     }),
   };
+}
+
+function normalizeGameDetail(payload: Record<string, any>): GameDetail {
+  const headerTeams = (payload.header?.competitions?.[0]?.competitors ?? []).map((competitor: Record<string, any>) => ({
+    id: String(competitor.team?.id ?? ''),
+    name: competitor.team?.displayName ?? '',
+    abbreviation: competitor.team?.abbreviation ?? '',
+    logo: competitor.team?.logo ?? competitor.team?.logos?.[0]?.href ?? '',
+    score: String(competitor.score ?? ''),
+    periods: (competitor.linescores ?? []).map((period: Record<string, any>) => String(period.displayValue ?? period.value ?? '')),
+  }));
+  const boxTeams = (payload.boxscore?.teams ?? []) as Array<Record<string, any>>;
+  const statNames = [...new Set(boxTeams.flatMap((team) => (team.statistics ?? []).map((stat: Record<string, any>) => stat.name)))];
+  const stats = {
+    teams: boxTeams.map((team) => ({ id: String(team.team?.id ?? ''), abbreviation: team.team?.abbreviation ?? '' })),
+    rows: statNames.map((name) => {
+      const first = boxTeams.flatMap((team) => team.statistics ?? []).find((stat: Record<string, any>) => stat.name === name);
+      return {
+        label: first?.label ?? name,
+        values: boxTeams.map((team) => {
+          const stat = (team.statistics ?? []).find((item: Record<string, any>) => item.name === name);
+          return String(stat?.displayValue ?? stat?.value ?? '—');
+        }),
+      };
+    }),
+  };
+  const leaders = (payload.leaders ?? []).flatMap((team: Record<string, any>) =>
+    (team.leaders ?? []).flatMap((category: Record<string, any>) => {
+      const leader = category.leaders?.[0];
+      if (!leader?.athlete) return [];
+      return [{
+        teamId: String(team.team?.id ?? ''), team: team.team?.abbreviation ?? '', logo: team.team?.logo ?? '',
+        category: category.displayName ?? category.name ?? '', athlete: leader.athlete.displayName ?? '',
+        value: leader.displayValue ?? leader.summary ?? '', headshot: leader.athlete.headshot?.href ?? '',
+      }];
+    }),
+  );
+  const scoringPlays = (payload.scoringPlays ?? []).map((play: Record<string, any>) => ({
+    id: String(play.id ?? `${play.period?.number}-${play.clock?.displayValue}-${play.text}`),
+    team: play.team?.abbreviation ?? '', logo: play.team?.logo ?? '', period: Number(play.period?.number ?? 0),
+    clock: play.clock?.displayValue ?? '', text: play.text ?? '', awayScore: String(play.awayScore ?? ''), homeScore: String(play.homeScore ?? ''),
+  }));
+  return { linescore: headerTeams, stats, leaders, scoringPlays };
 }
 
 function formatGameDate(value: string, withTime = true) {
@@ -165,7 +213,7 @@ function GameCard({ game, trackedIds, onOpen }: { game: Game; trackedIds: Set<st
   );
 }
 
-function GameDetails({ game, onTeam }: { game: Game; onTeam: (teamId: string) => void }) {
+function GameDetails({ game, detail, loading, onTeam }: { game: Game; detail: GameDetail | null; loading: boolean; onTeam: (teamId: string) => void }) {
   const competitors = [...game.competitors].sort((a, b) => (a.homeAway === 'away' ? -1 : b.homeAway === 'away' ? 1 : 0));
   const showScore = game.status.completed || game.status.state === 'in';
   return (
@@ -193,6 +241,59 @@ function GameDetails({ game, onTeam }: { game: Game; onTeam: (teamId: string) =>
         <div><CalendarDays /><span><small>Date & time</small>{formatGameDate(game.date)}</span></div>
         <div><MapPin /><span><small>Location</small>{game.venue?.name || [game.venue?.city, game.venue?.state].filter(Boolean).join(', ') || 'TBD'}</span></div>
       </div>
+      {loading ? (
+        <div className="boxscore-loading">
+          <div className="loading-block" /><div className="loading-block" /><div className="loading-block" />
+        </div>
+      ) : detail && (detail.stats.rows.length > 0 || detail.linescore.some((team) => team.periods.length)) ? (
+        <div className="boxscore-content">
+          {detail.linescore.some((team) => team.periods.length) && (
+            <section className="game-detail-section">
+              <h3>Scoring by quarter</h3>
+              <div className="table-scroll">
+                <table className="linescore-table">
+                  <thead><tr><th>Team</th>{detail.linescore[0]?.periods.map((_, index) => <th key={index}>{index < 4 ? `Q${index + 1}` : `OT${index - 3}`}</th>)}<th>T</th></tr></thead>
+                  <tbody>{detail.linescore.map((team) => <tr key={team.id}><th><img src={team.logo} alt="" />{team.abbreviation}</th>{team.periods.map((score, index) => <td key={index}>{score}</td>)}<td className="total-score">{team.score}</td></tr>)}</tbody>
+                </table>
+              </div>
+            </section>
+          )}
+          {detail.stats.rows.length > 0 && (
+            <section className="game-detail-section">
+              <h3>Team stats</h3>
+              <table className="team-stats-table">
+                <thead><tr><th>Stat</th>{detail.stats.teams.map((team) => <th key={team.id}>{team.abbreviation}</th>)}</tr></thead>
+                <tbody>{detail.stats.rows.map((row) => <tr key={row.label}><th>{row.label}</th>{row.values.map((value, index) => <td key={index}>{value}</td>)}</tr>)}</tbody>
+              </table>
+            </section>
+          )}
+          {detail.leaders.length > 0 && (
+            <section className="game-detail-section">
+              <h3>Game leaders</h3>
+              <div className="leaders-grid">{detail.leaders.map((leader) => (
+                <div key={`${leader.teamId}-${leader.category}`} className="leader-card">
+                  {leader.headshot ? <img src={leader.headshot} alt="" /> : <TeamLogo team={{ name: leader.team, logo: leader.logo, color: '' }} className="size-11" />}
+                  <span><small>{leader.team} · {leader.category}</small><strong>{leader.athlete}</strong><em>{leader.value}</em></span>
+                </div>
+              ))}</div>
+            </section>
+          )}
+          {detail.scoringPlays.length > 0 && (
+            <section className="game-detail-section">
+              <h3>Scoring plays</h3>
+              <div className="scoring-plays">{detail.scoringPlays.map((play) => (
+                <div key={play.id} className="scoring-play">
+                  {play.logo ? <img src={play.logo} alt="" /> : <span />}
+                  <div><small>Q{play.period} · {play.clock}</small><p>{play.text}</p></div>
+                  <b>{play.awayScore}–{play.homeScore}</b>
+                </div>
+              ))}</div>
+            </section>
+          )}
+        </div>
+      ) : (
+        <div className="boxscore-empty">Box score and game leaders will appear when the game begins.</div>
+      )}
     </>
   );
 }
@@ -246,6 +347,8 @@ export default function Home() {
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [gameDetails, setGameDetails] = useState<Record<string, GameDetail>>({});
+  const [loadingGameId, setLoadingGameId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError('');
@@ -286,7 +389,7 @@ export default function Home() {
     try {
       const season = currentSeason();
       const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?season=${season}&week=${week + 1}&seasontype=2&groups=80&limit=500`,
+        `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?season=${season}&week=${week}&seasontype=2&groups=80&limit=500`,
         { cache: 'no-store' },
       );
       if (!response.ok) throw new Error(`ESPN returned ${response.status}`);
@@ -343,6 +446,23 @@ export default function Home() {
     }
   }, [data?.teams]);
 
+  const loadGameDetail = useCallback(async (gameId: string) => {
+    setLoadingGameId(gameId);
+    try {
+      const response = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=${gameId}`,
+        { cache: 'no-store' },
+      );
+      if (!response.ok) return;
+      const payload = await response.json() as Record<string, any>;
+      setGameDetails((current) => ({ ...current, [gameId]: normalizeGameDetail(payload) }));
+    } catch {
+      // The matchup basics remain available if ESPN has not published a box score.
+    } finally {
+      setLoadingGameId((current) => current === gameId ? null : current);
+    }
+  }, []);
+
   const groupIds = useMemo(() => new Set(data?.groups[era] ?? []), [data, era]);
   const groupTeams = useMemo(
     () => (data ? data.groups[era].map((id) => data.teams.find((team) => team.id === id)).filter(Boolean) as Team[] : []),
@@ -361,7 +481,7 @@ export default function Home() {
     const upcoming = allGames
       .filter((game) => new Date(game.date).valueOf() >= now - 18 * 60 * 60 * 1000)
       .sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).valueOf())[0];
-    setSelectedWeek((current) => (current && weeks.includes(current) ? current : (upcoming?.week ?? weeks[weeks.length - 1])));
+    setSelectedWeek((current) => (current !== null && weeks.includes(current) ? current : (upcoming?.week ?? weeks[weeks.length - 1])));
   }, [allGames, weeks]);
 
   useEffect(() => {
@@ -423,6 +543,14 @@ export default function Home() {
   const selectedGame = allGames.find((game) => game.id === selectedGameId) ?? null;
   const weekIndex = selectedWeek !== null ? weeks.indexOf(selectedWeek) : -1;
   const hasLiveGames = weekGames.some((game) => game.status.state === 'in');
+
+  useEffect(() => {
+    if (!selectedGameId) return;
+    void loadGameDetail(selectedGameId);
+    if (selectedGame?.status.state !== 'in') return;
+    const interval = window.setInterval(() => void loadGameDetail(selectedGameId), 15_000);
+    return () => window.clearInterval(interval);
+  }, [loadGameDetail, selectedGame?.status.state, selectedGameId]);
 
   return (
     <main className="min-h-screen">
@@ -554,6 +682,8 @@ export default function Home() {
           {selectedGame && (
             <GameDetails
               game={selectedGame}
+              detail={gameDetails[selectedGame.id] ?? null}
+              loading={loadingGameId === selectedGame.id}
               onTeam={(teamId) => void openTeamSchedule(teamId)}
             />
           )}
