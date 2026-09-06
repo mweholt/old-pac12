@@ -69,12 +69,18 @@ function normalizeEspnEvent(event: Record<string, any>): Game {
       name: competition.venue.fullName ?? '', city: competition.venue.address?.city ?? '', state: competition.venue.address?.state ?? '',
     } : null,
     broadcast: competition.broadcasts?.flatMap((item: { names?: string[] }) => item.names ?? [])[0] ?? '',
-    competitors: (competition.competitors ?? []).map((competitor: Record<string, any>) => ({
-      id: competitor.team?.id ?? '', name: competitor.team?.displayName ?? '', abbreviation: competitor.team?.abbreviation ?? '',
-      logo: competitor.team?.logo ?? competitor.team?.logos?.[0]?.href ?? '', color: competitor.team?.color ?? '',
-      homeAway: competitor.homeAway ?? '', score: competitor.score ?? '', winner: competitor.winner ?? false,
-      record: competitor.records?.[0]?.summary ?? '',
-    })),
+    competitors: (competition.competitors ?? []).map((competitor: Record<string, any>) => {
+      const rawScore = competitor.score;
+      const score = typeof rawScore === 'object' && rawScore !== null
+        ? String(rawScore.displayValue ?? rawScore.value ?? '')
+        : String(rawScore ?? '');
+      return {
+        id: competitor.team?.id ?? '', name: competitor.team?.displayName ?? '', abbreviation: competitor.team?.abbreviation ?? '',
+        logo: competitor.team?.logo ?? competitor.team?.logos?.[0]?.href ?? '', color: competitor.team?.color ?? '',
+        homeAway: competitor.homeAway ?? '', score, winner: competitor.winner ?? false,
+        record: competitor.records?.[0]?.summary ?? '',
+      };
+    }),
   };
 }
 
