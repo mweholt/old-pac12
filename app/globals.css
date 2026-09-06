@@ -31,13 +31,22 @@ button { cursor: pointer; }
 .utility-live { color: #9fddf5; letter-spacing: .04em; text-transform: none; }
 .main-nav { padding-block: .75rem; }
 .pac-logo { width: 5.6rem; height: 2.4rem; object-fit: contain; }
-.nav-divider { width: 1px; height: 2.25rem; background: #d8e1e9; }
+.site-nav-links { display: flex; align-self: stretch; align-items: center; gap: .25rem; margin-left: auto; }
+.site-nav-links a { position: relative; display: grid; min-height: 2.45rem; place-items: center; padding: 0 .9rem; color: #526a80; font-size: .82rem; font-weight: 850; text-transform: uppercase; letter-spacing: .045em; }
+.site-nav-links a:hover { color: var(--pac-blue); }
+.site-nav-links a.active { color: var(--pac-navy); }
+.site-nav-links a.active::after { content: ''; position: absolute; inset: auto .9rem -.75rem; height: 3px; background: var(--pac-blue); }
+.season-label { color: var(--pac-muted); font-size: .75rem; font-weight: 700; white-space: nowrap; }
 
 .era-switch { display: flex; overflow: hidden; border: 1px solid #bfcbd6; border-radius: .18rem; background: #f4f7f9; }
 .era-switch button { min-height: 2.45rem; padding: .55rem 1rem; color: #526a80; font-size: .78rem; font-weight: 850; letter-spacing: .035em; transition: .16s ease; }
 .era-switch button + button { border-left: 1px solid #bfcbd6; }
 .era-switch button:hover { color: var(--pac-navy); background: white; }
 .era-switch button.active { color: white; background: var(--pac-blue); box-shadow: inset 0 -3px 0 var(--pac-sky); }
+.era-filter-bar { display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--pac-line); padding: .75rem 1.25rem; background: white; box-shadow: 0 3px 12px rgb(3 36 68 / 5%); }
+.standings-filter { justify-content: space-between; gap: 1.5rem; max-width: 80rem; margin-inline: auto; border: 0; padding: 1.4rem 2rem; box-shadow: none; background: transparent; }
+.standings-kicker { color: var(--pac-blue); font-size: .72rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.standings-filter h1 { margin-top: .15rem; color: var(--pac-navy); font-size: 1.65rem; font-weight: 950; letter-spacing: -.025em; }
 
 .week-selector { position: relative; overflow: hidden; color: white; background: linear-gradient(105deg, var(--pac-deep), #064a7d 72%, #086b9d); }
 .week-selector::before { content: ''; position: absolute; inset: 0; opacity: .2; background: repeating-linear-gradient(120deg, transparent 0 56px, rgb(255 255 255 / 14%) 57px 58px, transparent 59px 118px); pointer-events: none; }
@@ -147,6 +156,39 @@ button { cursor: pointer; }
 .scoring-play p { margin-top: .08rem; color: #334d63; font-size: .75rem; line-height: 1.35; }
 .scoring-play b { color: var(--pac-navy); font-size: .78rem; white-space: nowrap; }
 
+.standings-shell { overflow: hidden; border: 1px solid var(--pac-line); border-top: 4px solid var(--pac-blue); border-radius: .2rem; background: white; box-shadow: 0 8px 24px rgb(3 36 68 / 8%); }
+.standings-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--pac-line); padding: 1.2rem 1.35rem; }
+.standings-heading h2 { color: var(--pac-navy); font-size: 1.15rem; font-weight: 900; text-transform: uppercase; }
+.standings-heading p { margin-top: .2rem; color: var(--pac-muted); font-size: .78rem; }
+.standings-table-wrap { overflow-x: auto; }
+.standings-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: .82rem; }
+.standings-table th, .standings-table td { border-bottom: 1px solid #e2e8ee; padding: .85rem .75rem; text-align: center; }
+.standings-table thead th { color: var(--pac-muted); background: #f3f6f8; font-size: .68rem; font-weight: 850; letter-spacing: .055em; text-transform: uppercase; }
+.standings-table thead th:nth-child(2) { text-align: left; }
+.standings-table tbody tr:last-child th, .standings-table tbody tr:last-child td { border-bottom: 0; }
+.standings-table tbody tr:hover { background: #f8fbfd; }
+.standings-table tbody th { display: flex; min-width: 13rem; align-items: center; gap: .75rem; color: var(--pac-navy); text-align: left; }
+.standings-table tbody th > img, .standings-table tbody th > span:first-child { display: grid; width: 2.25rem; height: 2.25rem; flex: none; place-items: center; border-radius: 50%; color: white; object-fit: contain; font-size: .72rem; font-weight: 900; }
+.standings-table tbody th > span:last-child { display: grid; }
+.standings-table tbody th strong { font-size: .86rem; }
+.standings-table tbody th small { margin-top: .08rem; color: var(--pac-muted); font-size: .65rem; font-weight: 700; }
+.standing-rank { color: #8092a3; font-weight: 850; }
+.standing-win { color: var(--pac-navy); font-weight: 950; }
+.positive { color: #07814f; font-weight: 850; }
+.negative { color: #b43545; font-weight: 850; }
+.streak-badge { display: inline-grid; min-width: 2rem; min-height: 1.55rem; place-items: center; border-radius: 999px; padding: 0 .45rem; color: #637789; background: #edf2f5; font-size: .68rem; font-weight: 900; }
+.streak-badge.win { color: #087247; background: #e2f6ed; }
+.streak-badge.loss { color: #a52939; background: #fbe8eb; }
+.form-dots { display: flex; justify-content: center; gap: .22rem; }
+.form-dots span { display: grid; width: 1.35rem; height: 1.35rem; place-items: center; border-radius: 50%; color: white; background: #7e91a2; font-size: .58rem; font-weight: 900; }
+.form-dots .w { background: #129461; }
+.form-dots .l { background: #c74a58; }
+.form-dots em { color: var(--pac-muted); font-style: normal; }
+.standings-note { margin: .9rem .2rem 0; color: var(--pac-muted); font-size: .72rem; line-height: 1.5; }
+.standings-loading { display: grid; gap: 1px; background: #e2e8ee; }
+.standings-loading .loading-block { height: 4.1rem; }
+.standings-error { min-height: 20rem; border: 0; }
+
 footer { color: #667d90 !important; }
 
 @keyframes live-pulse { 50% { opacity: .4; transform: scale(.76); } }
@@ -154,9 +196,14 @@ footer { color: #667d90 !important; }
 @keyframes panel-in { from { transform: translateX(2.5rem); opacity: 0; } }
 
 @media (max-width: 640px) {
-  .utility-live, .nav-divider { display: none; }
+  .utility-live, .season-label { display: none; }
   .pac-logo { width: 4.6rem; }
+  .site-nav-links { gap: 0; }
+  .site-nav-links a { padding-inline: .55rem; font-size: .7rem; }
+  .site-nav-links a.active::after { inset-inline: .55rem; }
   .era-switch button { padding-inline: .62rem; font-size: .7rem; }
+  .standings-filter { padding: 1rem 1.25rem; }
+  .standings-filter h1 { font-size: 1.3rem; }
   .scoreboard-shell { padding: 1rem; }
   .week-chip span { display: none; }
   .live-dot { max-width: 8.2rem; overflow: hidden; text-overflow: ellipsis; }

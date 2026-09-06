@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { SiteHeader } from '@/components/site-header';
 
 type Era = 'old' | 'new';
 type Competitor = {
@@ -576,30 +577,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      <header className="site-header sticky top-0 z-40">
-        <div className="utility-bar">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-5 sm:px-8">
-            <span>PAC-12 FOOTBALL</span>
-            <span className="utility-live">Live scores powered by ESPN</span>
-          </div>
-        </div>
-        <div className="main-nav px-5 sm:px-8">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <img src="/pac12-wordmark.svg" alt="Pac-12 Conference" className="pac-logo" />
-              <span className="nav-divider" aria-hidden="true" />
-            <div>
-                <h1 className="text-base font-black uppercase tracking-[0.08em] text-[#0a3158] sm:text-lg">Football Tracker</h1>
-                <p className="text-xs text-slate-500 sm:text-sm">{data?.season ?? new Date().getFullYear()} season</p>
-              </div>
-            </div>
-            <div className="era-switch" aria-label="Choose Pac-12 era">
-              <button className={era === 'old' ? 'active' : ''} onClick={() => setEra('old')}>Old Pac-12</button>
-              <button className={era === 'new' ? 'active' : ''} onClick={() => setEra('new')}>New Pac-12</button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <SiteHeader active="schedule" season={data?.season} />
 
       <section className="week-selector">
         <div className="week-selector-inner mx-auto max-w-7xl px-5 sm:px-8">
@@ -625,6 +603,13 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <div className="era-filter-bar">
+        <div className="era-switch" aria-label="Choose Pac-12 era">
+          <button className={era === 'old' ? 'active' : ''} onClick={() => setEra('old')}>Old Pac-12</button>
+          <button className={era === 'new' ? 'active' : ''} onClick={() => setEra('new')}>New Pac-12</button>
+        </div>
+      </div>
 
       <section className="mx-auto max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
         {error ? (
