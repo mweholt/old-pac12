@@ -206,7 +206,6 @@ footer { color: #667d90 !important; }
   .standings-filter h1 { font-size: 1.3rem; }
   .scoreboard-shell { padding: 1rem; }
   .week-chip span { display: none; }
-  .live-dot { max-width: 8.2rem; overflow: hidden; text-overflow: ellipsis; }
   .game-dialog { max-height: calc(100vh - 1rem); }
   .game-dialog-facts, .leaders-grid { grid-template-columns: 1fr; }
 }

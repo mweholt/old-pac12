@@ -355,7 +355,6 @@ export default function Home() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [gameDetails, setGameDetails] = useState<Record<string, GameDetail>>({});
   const [loadingGameId, setLoadingGameId] = useState<string | null>(null);
@@ -386,7 +385,6 @@ export default function Home() {
         teams,
         partial: teams.length !== teamMap.size,
       });
-      setLastUpdated(new Date());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Live ESPN data could not be loaded.');
     }
@@ -422,7 +420,6 @@ export default function Home() {
           };
         }),
       } : current);
-      setLastUpdated(new Date());
     } catch {
       // Keep the last good scoreboard visible if a background refresh fails.
     } finally {
@@ -623,13 +620,7 @@ export default function Home() {
               <div className="mb-5 flex items-center justify-between gap-4">
                 <h3 className="section-title">Week {selectedWeek ?? '—'} matchups</h3>
                 <div className="flex items-center gap-2">
-                  <span className={`live-dot ${hasLiveGames ? 'is-live' : ''}`}>
-                    {hasLiveGames
-                      ? 'Live · updates every 15 sec'
-                      : lastUpdated
-                        ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-                        : 'ESPN data'}
-                  </span>
+                  {hasLiveGames && <span className="live-dot is-live">Live</span>}
                   <button
                     className="icon-button"
                     aria-label="Refresh live scores"
