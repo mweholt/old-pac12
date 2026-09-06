@@ -486,15 +486,24 @@ export default function Home() {
   const weeks = useMemo(() => [...new Set([0, ...allGames.map((game) => game.week)])].sort((a, b) => a - b), [allGames]);
 
   useEffect(() => {
-    if (!weeks.length) return;
-    const now = Date.now();
-    const activeGame = allGames.reduce<Game | null>((nearest, game) => {
-      if (!nearest) return game;
-      const gameDistance = Math.abs(new Date(game.date).valueOf() - now);
-      const nearestDistance = Math.abs(new Date(nearest.date).valueOf() - now);
-      return gameDistance < nearestDistance ? game : nearest;
-    }, null);
-    setSelectedWeek((current) => (current !== null && weeks.includes(current) ? current : (activeGame?.week ?? weeks[weeks.length - 1])));
+    if (!allGames.length) return;
+    const now = new Date();
+    const weekStarts = weeks.flatMap((week) => {
+      const kickoffTimes = allGames
+        .filter((game) => game.week === week)
+        .map((game) => new Date(game.date).valueOf())
+        .filter(Number.isFinite);
+      if (!kickoffTimes.length) return [];
+      const start = new Date(Math.min(...kickoffTimes));
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - ((start.getDay() - 3 + 7) % 7));
+      return [{ week, startsAt: start.valueOf() }];
+    }).sort((a, b) => a.startsAt - b.startsAt);
+    const activeWeek = weekStarts.reduce(
+      (current, candidate) => candidate.startsAt <= now.valueOf() ? candidate.week : current,
+      weekStarts[0]?.week ?? weeks[0],
+    );
+    setSelectedWeek((current) => (current !== null && weeks.includes(current) ? current : activeWeek));
   }, [allGames, weeks]);
 
   useEffect(() => {
