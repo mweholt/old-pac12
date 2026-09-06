@@ -488,10 +488,13 @@ export default function Home() {
   useEffect(() => {
     if (!weeks.length) return;
     const now = Date.now();
-    const upcoming = allGames
-      .filter((game) => new Date(game.date).valueOf() >= now - 18 * 60 * 60 * 1000)
-      .sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).valueOf())[0];
-    setSelectedWeek((current) => (current !== null && weeks.includes(current) ? current : (upcoming?.week ?? weeks[weeks.length - 1])));
+    const activeGame = allGames.reduce<Game | null>((nearest, game) => {
+      if (!nearest) return game;
+      const gameDistance = Math.abs(new Date(game.date).valueOf() - now);
+      const nearestDistance = Math.abs(new Date(nearest.date).valueOf() - now);
+      return gameDistance < nearestDistance ? game : nearest;
+    }, null);
+    setSelectedWeek((current) => (current !== null && weeks.includes(current) ? current : (activeGame?.week ?? weeks[weeks.length - 1])));
   }, [allGames, weeks]);
 
   useEffect(() => {
@@ -589,37 +592,32 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="pac-hero">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-5 px-5 py-8 sm:px-8 sm:py-10">
-          <div>
-            <p className="eyebrow">{era === 'old' ? 'Where are they now?' : 'A new era begins'}</p>
-            <h2 className="mt-2 max-w-3xl text-3xl font-black tracking-[-0.035em] text-white sm:text-5xl">
-              Every team. Every week.
-            </h2>
-          </div>
+      <section className="week-selector">
+        <div className="week-selector-inner mx-auto max-w-7xl px-5 sm:px-8">
           {selectedWeek !== null && (
-            <div className="flex items-center gap-2">
-              <button className="icon-button" aria-label="Previous week" disabled={weekIndex <= 0} onClick={() => setSelectedWeek(weeks[weekIndex - 1])}>
-                <ChevronLeft />
-              </button>
+            <div className="week-selector-top">
               <div className="week-chip">Week {selectedWeek}<span>{weekRange(weekGames)}</span></div>
-              <button className="icon-button" aria-label="Next week" disabled={weekIndex < 0 || weekIndex >= weeks.length - 1} onClick={() => setSelectedWeek(weeks[weekIndex + 1])}>
-                <ChevronRight />
-              </button>
+              <div className="flex items-center gap-2">
+                <button className="icon-button" aria-label="Previous week" disabled={weekIndex <= 0} onClick={() => setSelectedWeek(weeks[weekIndex - 1])}>
+                  <ChevronLeft />
+                </button>
+                <button className="icon-button" aria-label="Next week" disabled={weekIndex < 0 || weekIndex >= weeks.length - 1} onClick={() => setSelectedWeek(weeks[weekIndex + 1])}>
+                  <ChevronRight />
+                </button>
+              </div>
             </div>
           )}
+          <div className="week-rail" aria-label="Season weeks">
+            {weeks.map((week) => (
+              <button key={week} className={selectedWeek === week ? 'active' : ''} onClick={() => setSelectedWeek(week)}>
+                {week}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
-        <div className="week-rail" aria-label="Season weeks">
-          {weeks.map((week) => (
-            <button key={week} className={selectedWeek === week ? 'active' : ''} onClick={() => setSelectedWeek(week)}>
-              {week}
-            </button>
-          ))}
-        </div>
-
         {error ? (
           <div className="error-state">
             <p>{error}</p>
@@ -641,8 +639,8 @@ export default function Home() {
                   <button
                     className="icon-button"
                     aria-label="Refresh live scores"
-                    disabled={!selectedWeek || isRefreshing}
-                    onClick={() => selectedWeek && void refreshScores(selectedWeek)}
+                    disabled={selectedWeek === null || isRefreshing}
+                    onClick={() => selectedWeek !== null && void refreshScores(selectedWeek)}
                   >
                     <RefreshCw className={isRefreshing ? 'animate-spin' : ''} />
                   </button>
