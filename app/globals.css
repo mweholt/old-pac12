@@ -20,14 +20,13 @@
 }
 
 * { box-sizing: border-box; }
-html { font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif; background: var(--pac-bg); }
+html { background: var(--pac-bg); }
+body, body * { font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif; }
 body { min-height: 100vh; margin: 0; color: var(--pac-ink); background: var(--pac-bg); }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
-h1, h2, h3, h4, h5, h6 { font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif; }
 
 .site-header { border-bottom: 1px solid #cbd7e2; background: white; box-shadow: 0 2px 12px rgb(3 36 68 / 12%); }
-.site-header, .site-header * { font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif; }
 .utility-bar { min-height: 2rem; padding: .42rem 0; color: rgb(255 255 255 / 78%); background: var(--pac-deep); font-size: .68rem; font-weight: 800; letter-spacing: .12em; }
 .utility-live { color: #9fddf5; letter-spacing: .04em; text-transform: none; }
 .main-nav { padding-block: .75rem; }
