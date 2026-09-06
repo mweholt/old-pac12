@@ -65,12 +65,21 @@ function currentSeason() {
   return now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
 }
 
+function displayWeek(event: Record<string, any>) {
+  const espnWeek = Number(event.week?.number);
+  if (!Number.isFinite(espnWeek)) return -1;
+  const kickoff = new Date(event.date ?? '');
+  // ESPN groups the Aug. 27–31, 2026 Week 0 slate into its broader Week 1 bucket.
+  if (espnWeek === 1 && kickoff >= new Date('2026-08-27T00:00:00Z') && kickoff < new Date('2026-09-01T00:00:00Z')) return 0;
+  return espnWeek;
+}
+
 function normalizeEspnEvent(event: Record<string, any>): Game {
   const competition = event.competitions?.[0] ?? {};
   const status = competition.status?.type ?? {};
   return {
     id: event.id ?? '', date: event.date ?? '', name: event.name ?? '', shortName: event.shortName ?? '',
-    week: Number.isFinite(Number(event.week?.number)) ? Number(event.week.number) : -1,
+    week: displayWeek(event),
     status: { state: status.state ?? 'pre', completed: status.completed ?? false, detail: status.shortDetail ?? status.detail ?? '' },
     venue: competition.venue ? {
       name: competition.venue.fullName ?? '', city: competition.venue.address?.city ?? '', state: competition.venue.address?.state ?? '',
@@ -388,8 +397,9 @@ export default function Home() {
     setIsRefreshing(true);
     try {
       const season = currentSeason();
+      const espnWeek = week === 0 ? 1 : week;
       const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?season=${season}&week=${week}&seasontype=2&groups=80&limit=500`,
+        `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?season=${season}&week=${espnWeek}&seasontype=2&groups=80&limit=500`,
         { cache: 'no-store' },
       );
       if (!response.ok) throw new Error(`ESPN returned ${response.status}`);
